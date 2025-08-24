@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "cd clarifAI-main && npm install && npm run build",
-    "start": "cd clarifAI-main && npm run dev:server",
+    "start": "cd clarifAI-main && npm start",
     "dev": "cd clarifAI-main && npm run dev:full",
-    "install-deps": "cd clarifAI-main && npm install"
+    "postinstall": "cd clarifAI-main && npm install"
   },
   "engines": {
     "node": ">=18.0.0"

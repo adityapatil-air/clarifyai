@@ -2,7 +2,7 @@ services:
   - type: web
     name: clarifai-data-cleaning
     env: node
-    buildCommand: npm run install-deps && npm run build
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
