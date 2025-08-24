@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createShareLink, getSharedData } from './shareManager.js';
 
 // Load environment variables
 dotenv.config();
@@ -267,6 +268,215 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AI Data Resolution API is running' });
 });
 
+// Gemini SQL endpoint
+app.post('/api/gemini-sql', async (req, res) => {
+  try {
+    const { userQuery, columns, sampleData, totalRows } = req.body;
+    
+    const result = await parseNaturalLanguageQuery(userQuery, columns, sampleData, totalRows);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Gemini SQL processing error:', error);
+    res.status(500).json({ error: 'Failed to process query' });
+  }
+});
+
+import { processNaturalLanguageWithGemini } from './gemini-api.js';
+
+async function parseNaturalLanguageQuery(userQuery, columns, sampleData, totalRows) {
+  // Try Gemini API first
+  try {
+    const geminiResult = await processNaturalLanguageWithGemini(userQuery, columns, sampleData);
+    return geminiResult;
+  } catch (error) {
+    console.error('Gemini failed, using fallback:', error);
+    return parseNaturalLanguageQueryFallback(userQuery, columns, sampleData, totalRows);
+  }
+}
+
+function parseNaturalLanguageQueryFallback(userQuery, columns, sampleData, totalRows) {
+  const query = userQuery.toLowerCase();
+  
+  // Show all data
+  if (query.includes('show all') || query.includes('all data') || query.includes('everything')) {
+    return {
+      filterLogic: 'ALL',
+      sqlQuery: 'SELECT * FROM data'
+    };
+  }
+  
+  // Count queries
+  if (query.includes('count') || query.includes('how many')) {
+    if (query.includes('null') || query.includes('missing') || query.includes('empty')) {
+      const column = columns.find(col => query.includes(col.toLowerCase()));
+      if (column) {
+        return {
+          filterLogic: {
+            type: 'COUNT',
+            conditions: { column, type: 'NULL_CHECK' }
+          },
+          sqlQuery: `SELECT COUNT(*) as count FROM data WHERE ${column} IS NULL OR ${column} = ''`
+        };
+      }
+    }
+    return {
+      filterLogic: { type: 'COUNT' },
+      sqlQuery: 'SELECT COUNT(*) as count FROM data'
+    };
+  }
+  
+  // NULL/missing values
+  if (query.includes('null') || query.includes('missing') || query.includes('empty')) {
+    const column = columns.find(col => query.includes(col.toLowerCase()));
+    if (column) {
+      return {
+        filterLogic: {
+          type: 'FILTER',
+          conditions: { column, type: 'NULL_CHECK' }
+        },
+        sqlQuery: `SELECT * FROM data WHERE ${column} IS NULL OR ${column} = ''`
+      };
+    }
+  }
+  
+  // City/location queries
+  if (query.includes('from ') || query.includes('in ')) {
+    const cityMatch = query.match(/(?:from|in)\s+(\w+)/i);
+    if (cityMatch) {
+      const city = cityMatch[1];
+      const cityColumn = columns.find(col => 
+        col.toLowerCase().includes('city') || 
+        col.toLowerCase().includes('location') ||
+        col.toLowerCase().includes('place')
+      );
+      if (cityColumn) {
+        return {
+          filterLogic: {
+            type: 'FILTER',
+            conditions: { column: cityColumn, type: 'STRING_CONTAINS', value: city }
+          },
+          sqlQuery: `SELECT * FROM data WHERE ${cityColumn} LIKE '%${city}%'`
+        };
+      }
+    }
+  }
+  
+  // Ranking queries
+  if (query.includes('rank') || query.includes('top') || query.includes('first') || query.includes('best')) {
+    const rankMatch = query.match(/(rank|top)\s*(\d+)/i) || query.match(/first\s*(\d+)?/i);
+    const limit = rankMatch ? parseInt(rankMatch[2] || '1') : 1;
+    
+    // Find the column to rank by
+    const rankColumn = columns.find(col => 
+      query.includes(col.toLowerCase()) || 
+      col.toLowerCase().includes('artist') ||
+      col.toLowerCase().includes('name') ||
+      col.toLowerCase().includes('score') ||
+      col.toLowerCase().includes('rating')
+    );
+    
+    if (rankColumn) {
+      return {
+        filterLogic: {
+          type: 'FILTER',
+          conditions: { column: rankColumn, type: 'LIMIT', value: limit }
+        },
+        sqlQuery: `SELECT * FROM data ORDER BY ${rankColumn} LIMIT ${limit}`
+      };
+    }
+  }
+  
+  // Age queries
+  if (query.includes('age')) {
+    const ageColumn = columns.find(col => col.toLowerCase().includes('age'));
+    if (ageColumn) {
+      // Greater than / older than
+      if (query.includes('greater than') || query.includes('older than') || query.includes('>')) {
+        const ageMatch = query.match(/(?:greater than|older than|>)\s*(\d+)/i);
+        if (ageMatch) {
+          const ageValue = ageMatch[1];
+          return {
+            filterLogic: {
+              type: 'FILTER',
+              conditions: { column: ageColumn, type: 'NUMERIC', operator: '>', value: ageValue }
+            },
+            sqlQuery: `SELECT * FROM data WHERE ${ageColumn} > ${ageValue}`
+          };
+        }
+      }
+      // Less than / younger than
+      else if (query.includes('less than') || query.includes('younger than') || query.includes('<')) {
+        const ageMatch = query.match(/(?:less than|younger than|<)\s*(\d+)/i);
+        if (ageMatch) {
+          const ageValue = ageMatch[1];
+          return {
+            filterLogic: {
+              type: 'FILTER',
+              conditions: { column: ageColumn, type: 'NUMERIC', operator: '<', value: ageValue }
+            },
+            sqlQuery: `SELECT * FROM data WHERE ${ageColumn} < ${ageValue}`
+          };
+        }
+      }
+      // Exact age
+      else {
+        const ageMatch = query.match(/age\s*(\d+)|\b(\d+)\s*years?\s*old/i);
+        if (ageMatch) {
+          const ageValue = ageMatch[1] || ageMatch[2];
+          return {
+            filterLogic: {
+              type: 'FILTER',
+              conditions: { column: ageColumn, type: 'NUMERIC', operator: '=', value: ageValue }
+            },
+            sqlQuery: `SELECT * FROM data WHERE ${ageColumn} = ${ageValue}`
+          };
+        }
+      }
+    }
+  }
+  
+  // Group by queries
+  if (query.includes('group by') || query.includes('count by')) {
+    const column = columns.find(col => query.includes(col.toLowerCase()));
+    if (column) {
+      return {
+        filterLogic: {
+          type: 'GROUP',
+          column: column
+        },
+        sqlQuery: `SELECT ${column}, COUNT(*) as count FROM data GROUP BY ${column}`
+      };
+    }
+  }
+  
+  // Search for specific values in any column
+  const searchTerms = query.split(' ').filter(term => 
+    term.length > 2 && 
+    !['show', 'find', 'get', 'from', 'where', 'the', 'all', 'data'].includes(term)
+  );
+  
+  if (searchTerms.length > 0) {
+    const searchTerm = searchTerms[0];
+    return {
+      filterLogic: {
+        type: 'FILTER',
+        conditions: { type: 'SEARCH', value: searchTerm }
+      },
+      sqlQuery: `SELECT * FROM data WHERE any_column LIKE '%${searchTerm}%'`
+    };
+  }
+  
+  // Default: show first 10 rows
+  return {
+    filterLogic: {
+      type: 'FILTER', 
+      conditions: { type: 'LIMIT', value: 10 }
+    },
+    sqlQuery: 'SELECT * FROM data LIMIT 10'
+  };
+}
+
 // Main processing endpoint
 app.post('/api/process-data', async (req, res) => {
   try {
@@ -307,8 +517,42 @@ app.post('/api/process-data', async (req, res) => {
   }
 });
 
+// Share link endpoints
+app.post('/api/create-share-link', (req, res) => {
+  try {
+    const { data, fileName, allowDownload, expiryHours } = req.body;
+    
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({ error: 'Data array is required', success: false });
+    }
+    
+    const result = createShareLink(data, fileName, allowDownload, expiryHours);
+    res.json(result);
+  } catch (error) {
+    console.error('Share link creation error:', error);
+    res.status(500).json({ error: 'Failed to create share link', success: false });
+  }
+});
+
+app.get('/api/share/:shareId', (req, res) => {
+  try {
+    const { shareId } = req.params;
+    const result = getSharedData(shareId);
+    
+    if (result.error) {
+      return res.status(result.status || 500).json(result);
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Share link access error:', error);
+    res.status(500).json({ error: 'Failed to access shared data' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Enhanced Data Processor running on port ${PORT}`);
   console.log(`📊 Health: http://localhost:${PORT}/api/health`);
   console.log(`🔧 Endpoint: POST /api/process-data`);
+  console.log(`🔗 Share: GET /api/share/:shareId`);
 });

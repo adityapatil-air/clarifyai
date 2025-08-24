@@ -5,11 +5,15 @@ import { HeroSection } from "@/components/HeroSection";
 import { FileUpload } from "@/components/FileUpload";
 import { DataPreview } from "@/components/DataPreview";
 import { ErrorResolution } from "@/components/ErrorResolution";
+import { SQLChatBot } from "@/components/SQLChatBot";
+import { DataComparison } from "@/components/DataComparison";
+import { ShareableLink } from "@/components/ShareableLink";
+import { generatePDFReport } from "@/utils/pdfGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, LogIn, Sparkles, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type AppStep = 'hero' | 'upload' | 'preview' | 'resolve' | 'download';
+type AppStep = 'hero' | 'upload' | 'preview' | 'resolve' | 'sqlchat' | 'download';
 
 const Index = () => {
   const [currentStep, setCurrentStep] = useState<AppStep>('hero');
@@ -39,24 +43,24 @@ const Index = () => {
     console.log('Resolution complete callback called with:', cleanData?.length, 'records');
     setCleanedData(cleanData || originalData);
     setProcessingReport(report);
-    setCurrentStep('download');
+    setCurrentStep('sqlchat');
     
     toast({
       title: "Data cleaning completed!",
-      description: "Your data has been successfully cleaned and is ready for download.",
+      description: "You can now explore your data with SQL Chat or download it directly.",
     });
   };
 
-  const handleDownload = () => {
-    if (!uploadedFile || !cleanedData.length) return;
+  const handleDownload = (data?: any[], filename?: string) => {
+    if (!uploadedFile) return;
     
-    const dataToDownload = cleanedData.length > 0 ? cleanedData : originalData;
+    const dataToDownload = data || (cleanedData.length > 0 ? cleanedData : originalData);
     const csvContent = convertToCSV(dataToDownload);
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cleaned_${uploadedFile.name}`;
+    a.download = filename || `cleaned_${uploadedFile.name}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -64,7 +68,20 @@ const Index = () => {
     
     toast({
       title: "Download started!",
-      description: "Your cleaned data file is being downloaded.",
+      description: `Downloading ${dataToDownload.length} records.`,
+    });
+  };
+
+  const handleDownloadQueryResult = (queryData: any[], queryText: string) => {
+    const filename = `query_result_${Date.now()}.csv`;
+    handleDownload(queryData, filename);
+  };
+
+  const handleDownloadPDFReport = () => {
+    generatePDFReport(originalData, cleanedData, processingReport);
+    toast({
+      title: "PDF Report Generated!",
+      description: "Open the downloaded HTML file in browser and press Ctrl+P to save as PDF.",
     });
   };
 
@@ -172,20 +189,20 @@ const Index = () => {
             {currentStep !== 'hero' && (
               <div className="flex items-center justify-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
-                  {['upload', 'preview', 'resolve', 'download'].map((step, index) => (
+                  {['upload', 'preview', 'resolve', 'sqlchat', 'download'].map((step, index) => (
                     <div key={step} className="flex items-center gap-2">
                       <div 
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
-                          ['upload', 'preview', 'resolve', 'download'].indexOf(currentStep) >= index
+                          ['upload', 'preview', 'resolve', 'sqlchat', 'download'].indexOf(currentStep) >= index
                             ? 'bg-primary text-primary-foreground shadow-glow' 
                             : 'bg-muted text-muted-foreground'
                         }`}
                       >
                         {index + 1}
                       </div>
-                      {index < 3 && (
+                      {index < 4 && (
                         <div className={`w-8 h-1 rounded-full transition-all duration-300 ${
-                          ['upload', 'preview', 'resolve', 'download'].indexOf(currentStep) > index
+                          ['upload', 'preview', 'resolve', 'sqlchat', 'download'].indexOf(currentStep) > index
                             ? 'bg-primary' 
                             : 'bg-muted'
                         }`} />
@@ -239,7 +256,7 @@ const Index = () => {
                   file={uploadedFile}
                   data={originalData}
                   onResolveErrors={handleResolveErrors}
-                  onDownload={handleDownload}
+                  onDownload={() => handleDownload()}
                 />
               </div>
             )}
@@ -259,6 +276,31 @@ const Index = () => {
               </div>
             )}
 
+            {currentStep === 'sqlchat' && (
+              <div className="space-y-8 animate-fade-in">
+                <div className="text-center">
+                  <h2 className="text-3xl font-bold mb-4">Explore Your Data</h2>
+                  <p className="text-muted-foreground text-lg">
+                    Ask questions about your data in natural language. Query raw or processed data.
+                  </p>
+                </div>
+                <SQLChatBot
+                  rawData={originalData}
+                  processedData={cleanedData}
+                  onDownloadQueryResult={handleDownloadQueryResult}
+                />
+                <div className="text-center">
+                  <Button 
+                    onClick={() => setCurrentStep('download')}
+                    size="lg"
+                    className="bg-gradient-primary hover:shadow-elegant transition-all duration-300 hover:scale-105"
+                  >
+                    Continue to Download
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {currentStep === 'download' && (
               <div className="space-y-8 animate-fade-in">
                 <div className="text-center space-y-6">
@@ -271,79 +313,23 @@ const Index = () => {
                   </p>
                 </div>
 
-                {/* Processing Report */}
-                {processingReport && (
-                  <Card className="max-w-4xl mx-auto">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-success" />
-                        Validation & Augmentation Report
-                      </CardTitle>
-                      <CardDescription>
-                        Summary of improvements made to your data
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg">Data Quality Improvements</h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between p-2 bg-muted/50 rounded">
-                              <span>Original Records:</span>
-                              <span className="font-medium">{originalData.length}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-muted/50 rounded">
-                              <span>Cleaned Records:</span>
-                              <span className="font-medium text-success">{cleanedData.length}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-muted/50 rounded">
-                              <span>Missing Values Fixed:</span>
-                              <span className="font-medium text-primary">{processingReport.missingFixed || 0}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-muted/50 rounded">
-                              <span>Duplicates Removed:</span>
-                              <span className="font-medium text-warning">{processingReport.duplicatesRemoved || 0}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-muted/50 rounded">
-                              <span>Format Issues Fixed:</span>
-                              <span className="font-medium text-info">{processingReport.formatFixed || 0}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <h4 className="font-semibold text-lg">Processing Details</h4>
-                          <div className="space-y-2">
-                            {processingReport.changes && processingReport.changes.map((change: any, index: number) => (
-                              <div key={index} className="p-2 bg-muted/30 rounded text-sm">
-                                <div className="font-medium">Row {change.row}, Column "{change.column}"</div>
-                                <div className="text-muted-foreground">
-                                  {change.type}: {change.description}
-                                </div>
-                                {change.before && change.after && (
-                                  <div className="text-xs mt-1">
-                                    <span className="text-destructive">Before: "{change.before}"</span>
-                                    <span className="mx-2">→</span>
-                                    <span className="text-success">After: "{change.after}"</span>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {(!processingReport.changes || processingReport.changes.length === 0) && (
-                              <div className="text-center text-muted-foreground py-4">
-                                No specific changes to report - data was already in good quality!
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Data Comparison View */}
+                <DataComparison
+                  originalData={originalData}
+                  cleanedData={cleanedData}
+                  processingReport={processingReport}
+                  onDownloadPDFReport={handleDownloadPDFReport}
+                />
+                
+                {/* Shareable Link */}
+                <ShareableLink
+                  data={cleanedData}
+                  fileName={uploadedFile?.name || 'cleaned_data.csv'}
+                />
                   
                 <div className="flex items-center justify-center gap-4">
                   <Button 
-                    onClick={handleDownload}
+                    onClick={() => handleDownload()}
                     size="lg"
                     className="bg-gradient-success hover:shadow-elegant transition-all duration-300 hover:scale-105"
                   >
