@@ -3,13 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:server": "node src/server/index.js",
-    "dev:full": "concurrently \"npm run dev:server\" \"npm run dev\"",
-    "build": "vite build",
-    "preview": "vite preview",
-    "start": "node src/server/index.js",
-    "postinstall": "npm run build"
+    "start": "node src/server/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
