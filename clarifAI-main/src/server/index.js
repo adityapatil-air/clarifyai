@@ -306,8 +306,8 @@ app.post('/api/process-data', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Enhanced Data Cleaning API running on port ${PORT}`);
-  console.log(`📊 Health: http://localhost:${PORT}/api/health`);
-  console.log(`🔧 Process Data: POST /api/process-data`);
+  console.log(`📊 Health check available`);
+  console.log(`🔧 Process Data endpoint ready`);
 });
