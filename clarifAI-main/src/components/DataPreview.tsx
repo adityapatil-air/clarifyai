@@ -77,29 +77,33 @@ export const DataPreview = ({ file, data, onResolveErrors, onDownload }: DataPre
           });
         }
 
-        // Check for duplicates
-        const duplicates = data
-          .map((row, index) => ({ value: row[column], index }))
-          .filter(({ value }) => value !== undefined && value !== null && value !== '')
-          .reduce((acc, { value, index }) => {
-            if (!acc[value]) acc[value] = [];
-            acc[value].push(index);
-            return acc;
-          }, {} as Record<string, number[]>);
+        // Check for duplicates (only for columns where duplicates are unusual)
+        const shouldCheckDuplicates = !column.toLowerCase().match(/(age|year|category|type|status|gender|grade|level|rating|score)/i);
         
-        Object.entries(duplicates).forEach(([value, indices]) => {
-          if (indices.length > 1) {
-            errors.push({
-              row: indices[0] + 1,
-              column,
-              type: 'duplicate',
-              message: `Duplicate value "${value}" found ${indices.length} times`,
-              severity: 'high',
-              value,
-              suggestion: 'Consider removing duplicates or adding unique identifiers'
-            });
-          }
-        });
+        if (shouldCheckDuplicates) {
+          const duplicates = data
+            .map((row, index) => ({ value: row[column], index }))
+            .filter(({ value }) => value !== undefined && value !== null && value !== '')
+            .reduce((acc, { value, index }) => {
+              if (!acc[value]) acc[value] = [];
+              acc[value].push(index);
+              return acc;
+            }, {} as Record<string, number[]>);
+          
+          Object.entries(duplicates).forEach(([value, indices]) => {
+            if (indices.length > 1) {
+              errors.push({
+                row: indices[0] + 1,
+                column,
+                type: 'duplicate',
+                message: `Duplicate value "${value}" found ${indices.length} times`,
+                severity: 'medium',
+                value,
+                suggestion: 'Consider removing duplicates or adding unique identifiers'
+              });
+            }
+          });
+        }
 
         // Check for format issues based on column name patterns
         if (column.toLowerCase().includes('email')) {

@@ -6,7 +6,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { DataPreview } from "@/components/DataPreview";
 import { ErrorResolution } from "@/components/ErrorResolution";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, LogIn, Sparkles } from "lucide-react";
+import { Download, LogIn, Sparkles, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type AppStep = 'hero' | 'upload' | 'preview' | 'resolve' | 'download';
@@ -16,6 +16,7 @@ const Index = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [originalData, setOriginalData] = useState<any[]>([]);
   const [cleanedData, setCleanedData] = useState<any[]>([]);
+  const [processingReport, setProcessingReport] = useState<any>(null);
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -34,8 +35,10 @@ const Index = () => {
     setCurrentStep('resolve');
   };
 
-  const handleResolutionComplete = (cleanData: any[]) => {
-    setCleanedData(cleanData);
+  const handleResolutionComplete = (cleanData: any[], report?: any) => {
+    console.log('Resolution complete callback called with:', cleanData?.length, 'records');
+    setCleanedData(cleanData || originalData);
+    setProcessingReport(report);
     setCurrentStep('download');
     
     toast({
@@ -72,9 +75,15 @@ const Index = () => {
     const csvRows = [
       headers.join(','),
       ...data.map(row => 
-        headers.map(header => 
-          JSON.stringify(row[header] || '')
-        ).join(',')
+        headers.map(header => {
+          const value = row[header] || '';
+          // Properly escape CSV values
+          const stringValue = String(value);
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return '"' + stringValue.replace(/"/g, '""') + '"';
+          }
+          return stringValue;
+        }).join(',')
       )
     ];
     
@@ -86,6 +95,7 @@ const Index = () => {
     setUploadedFile(null);
     setOriginalData([]);
     setCleanedData([]);
+    setProcessingReport(null);
   };
 
   return (
@@ -259,30 +269,105 @@ const Index = () => {
                   <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                     Your data has been successfully cleaned and enhanced. Download your improved dataset below.
                   </p>
+                </div>
+
+                {/* Processing Report */}
+                {processingReport && (
+                  <Card className="max-w-4xl mx-auto">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                        Validation & Augmentation Report
+                      </CardTitle>
+                      <CardDescription>
+                        Summary of improvements made to your data
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-lg">Data Quality Improvements</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between p-2 bg-muted/50 rounded">
+                              <span>Original Records:</span>
+                              <span className="font-medium">{originalData.length}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-muted/50 rounded">
+                              <span>Cleaned Records:</span>
+                              <span className="font-medium text-success">{cleanedData.length}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-muted/50 rounded">
+                              <span>Missing Values Fixed:</span>
+                              <span className="font-medium text-primary">{processingReport.missingFixed || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-muted/50 rounded">
+                              <span>Duplicates Removed:</span>
+                              <span className="font-medium text-warning">{processingReport.duplicatesRemoved || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-muted/50 rounded">
+                              <span>Format Issues Fixed:</span>
+                              <span className="font-medium text-info">{processingReport.formatFixed || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-lg">Processing Details</h4>
+                          <div className="space-y-2">
+                            {processingReport.changes && processingReport.changes.map((change: any, index: number) => (
+                              <div key={index} className="p-2 bg-muted/30 rounded text-sm">
+                                <div className="font-medium">Row {change.row}, Column "{change.column}"</div>
+                                <div className="text-muted-foreground">
+                                  {change.type}: {change.description}
+                                </div>
+                                {change.before && change.after && (
+                                  <div className="text-xs mt-1">
+                                    <span className="text-destructive">Before: "{change.before}"</span>
+                                    <span className="mx-2">→</span>
+                                    <span className="text-success">After: "{change.after}"</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {(!processingReport.changes || processingReport.changes.length === 0) && (
+                              <div className="text-center text-muted-foreground py-4">
+                                No specific changes to report - data was already in good quality!
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                   
-                  <div className="flex items-center justify-center gap-4">
-                    <Button 
-                      onClick={handleDownload}
-                      size="lg"
-                      className="bg-gradient-success hover:shadow-elegant transition-all duration-300 hover:scale-105"
-                    >
-                      <Download className="w-5 h-5 mr-2" />
-                      Download Clean Data
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={resetApp}
-                      size="lg"
-                    >
-                      Process Another File
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-center gap-4">
+                  <Button 
+                    onClick={handleDownload}
+                    size="lg"
+                    className="bg-gradient-success hover:shadow-elegant transition-all duration-300 hover:scale-105"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Download Clean Data
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={resetApp}
+                    size="lg"
+                  >
+                    Process Another File
+                  </Button>
                 </div>
               </div>
             )}
           </div>
         </SignedIn>
       </main>
+      
+      {/* Debug info */}
+      <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs z-50">
+        Step: {currentStep} | Original: {originalData.length} | Clean: {cleanedData.length}
+      </div>
     </div>
   );
 };

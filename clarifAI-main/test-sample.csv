@@ -1,0 +1,11 @@
+name,email,phone,age,category,city
+John Doe,john@gmail.com,123-456-7890,25,Premium,New York
+Jane Smith,jane@gmailcom,987-654-3210,30,STANDARD,Los Angeles
+,bob@yahoo.com,555-123-4567,999,premium,Chicago
+Alice Johnson,alice@hotmail.com,,28,Standard,Houston
+Bob Wilson,bob@yahoo.com,555-123-4567,35,PREMIUM,Phoenix
+Charlie Brown,charlie@outlook.com,444-555-6666,22,standard,Philadelphia
+Diana Prince,diana@wonderwoman,777-888-9999,150,Premium,San Antonio
+Eve Adams,eve@apple.com,111-222-3333,27,STANDARD,San Diego
+Frank Miller,frank@gmail.com,333-444-5555,32,premium,Dallas
+Grace Lee,grace@lee.com,666-777-8888,,Standard,San Jose

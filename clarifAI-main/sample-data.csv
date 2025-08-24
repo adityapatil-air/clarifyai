@@ -1,0 +1,16 @@
+name,email,age,category,description,rating
+john doe,john@invalid,,MALE,A  good   person with  many typos.,5
+jane smith,jane.smith@email.com,25,female,Another person with proper formatting.,4
+bob johnson,,thirty,M,Someone with missing data and inconsistencies.,
+alice brown,alice@test.com,28,Female,Well formatted entry for comparison.,5
+charlie wilson,charlie.wilson@company.org,,male,Final test entry with mixed issues.,3
+mary davis,mary.davis@email.com,35,FEMALE,Professional with excellent background.,5
+tom anderson,,25,m,Student with incomplete information.,4
+sarah johnson,sarah@company.com,30,Female,Manager with good experience.,5
+mike brown,mike.brown@test.org,,Male,Developer with technical skills.,4
+lisa wilson,lisa.wilson@email.com,28,female,Designer with creative abilities.,5
+david miller,,32,MALE,Analyst with strong analytical skills.,4
+emma davis,emma@invalid,29,F,Consultant with diverse experience.,5
+james taylor,james.taylor@company.com,,male,Engineer with problem-solving skills.,4
+olivia johnson,olivia.johnson@email.com,26,Female,Researcher with academic background.,5
+william brown,,31,M,Coordinator with organizational skills.,3
