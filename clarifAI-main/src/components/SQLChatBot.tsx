@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/config/api";
 
 interface SQLChatBotProps {
   rawData: any[];
@@ -44,7 +45,7 @@ export const SQLChatBot = ({ rawData, processedData, onDownloadQueryResult }: SQ
     
     try {
       // Call Gemini API to convert natural language to SQL logic
-      const response = await fetch('/api/gemini-sql', {
+      const response = await fetch(getApiUrl('/api/gemini-sql'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

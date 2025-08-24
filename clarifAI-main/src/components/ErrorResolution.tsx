@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/config/api";
 
 interface ErrorResolutionProps {
   onComplete: (cleanedData: any[], report?: any) => void;
@@ -76,7 +77,7 @@ export const ErrorResolution = ({ onComplete, originalData }: ErrorResolutionPro
   // Enhanced API call function
   const processDataWithAPI = async (data: any[], options: any = {}): Promise<APIResponse> => {
     try {
-      const response = await fetch('/api/process-data', {
+      const response = await fetch(getApiUrl('/api/process-data'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

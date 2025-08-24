@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { getApiUrl } from "@/config/api";
 
 interface ShareableLinkProps {
   data: any[];
@@ -23,7 +24,7 @@ export const ShareableLink = ({ data, fileName }: ShareableLinkProps) => {
     setIsGenerating(true);
     
     try {
-      const response = await fetch('/api/create-share-link', {
+      const response = await fetch(getApiUrl('/api/create-share-link'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
