@@ -264,6 +264,34 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Enhanced Data Cleaning API is running' });
 });
 
+// Share link endpoint
+app.post('/api/create-share-link', (req, res) => {
+  try {
+    const { data, fileName, allowDownload, expiryHours } = req.body;
+    
+    if (!data || !Array.isArray(data)) {
+      return res.status(400).json({ error: 'Data array is required', success: false });
+    }
+    
+    // Generate a simple share ID
+    const shareId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // In production, this would be stored in a database
+    // For demo, we'll return success
+    const shareUrl = `${req.protocol}://${req.get('host')}/share/${shareId}`;
+    
+    res.json({
+      success: true,
+      shareId,
+      shareUrl,
+      expiresAt: new Date(Date.now() + (expiryHours || 24) * 60 * 60 * 1000).toISOString()
+    });
+  } catch (error) {
+    console.error('Share link creation error:', error);
+    res.status(500).json({ error: 'Failed to create share link', success: false });
+  }
+});
+
 // Main processing endpoint
 app.post('/api/process-data', async (req, res) => {
   try {
